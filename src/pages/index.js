@@ -1,22 +1,16 @@
-import React from "react"
-import { Link, graphql } from "gatsby"
-
+import React, { useState, useCallback } from "react"
+import { graphql } from "gatsby"
+import { MDXRenderer } from "gatsby-mdx"
 import Layout from "../components/layout"
-import Image from "../components/image"
-import SEO from "../components/seo"
 
 const IndexPage = ({ data }) => {
-  console.log(data)
   return (
     <Layout>
-      <SEO title="Home" />
-      <h1>Hi people</h1>
-      <p>Welcome to your new Gatsby site.</p>
-      <p>Now go build something great.</p>
-      <div style={{ maxWidth: `300px`, marginBottom: `1.45rem` }}>
-        <Image />
-      </div>
-      <Link to="/page-2/">Go to page 2</Link>
+      {data.allMdx.edges
+        .map(edge => edge.node)
+        .map(({ code, id, frontmatter }) => (
+          <JokeCard key={id} title={frontmatter.title} mdxCode={code.body} />
+        ))}
     </Layout>
   )
 }
@@ -24,27 +18,13 @@ const IndexPage = ({ data }) => {
 export default IndexPage
 
 export const query = graphql`
-  query getMdxContent {
-    allMdx(
-      filter: {
-        fields: { sourceName: { eq: "content" } }
-        frontmatter: { isPublished: { eq: true }, title: {} }
-      }
-    ) {
+  query MDXQuery {
+    allMdx {
       edges {
         node {
           id
-          parent {
-            ... on File {
-              relativePath
-              sourceInstanceName
-              modifiedTime(fromNow: true)
-            }
-          }
           frontmatter {
             title
-            author
-            _PARENT
           }
           code {
             body
@@ -54,3 +34,38 @@ export const query = graphql`
     }
   }
 `
+
+const isDelimiter = el => el.props.originalType === "hr"
+
+const CustomWrapper = ({ children, chunk }) => {
+  const childrenArray = React.Children.toArray(children)
+  const chunks = childrenArray.reduce((acc, d, i) => {
+    if (0 === i) return [[d]]
+    if (isDelimiter(d)) return [...acc, []]
+    return [acc.slice(0, acc.length - 1), acc[acc.length - 1].concat(d)]
+  }, [])
+  return chunks[chunk]
+}
+
+function JokeCard({ title, mdxCode, id }) {
+  const [chunk, setChunk] = useState(0)
+  const toggle = useCallback(() => setChunk(prev => (prev ? 0 : 1)), [])
+  return (
+    <div
+      key={id}
+      style={{
+        border: "1px solid blue",
+        padding: "1rem 1rem 0",
+        marginBottom: "1rem",
+      }}
+      onClick={toggle}
+    >
+      <h3>{title}</h3>
+      <MDXRenderer
+        components={{ wrapper: CustomWrapper }}
+        children={mdxCode}
+        chunk={chunk}
+      />
+    </div>
+  )
+}
